@@ -493,7 +493,7 @@
                 </div>
                 <div style="flex:1;">
                     <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:700;">
-                        <span id="display-winrate-label">Persentase:</span>
+                        <span>Persentase Setor:</span>
                         <span id="display-winrate-percent" style="color:var(--primary);">100%</span>
                     </div>
                     <div style="height:7px; background:#e2e8f0; border-radius:10px; margin:5px 0; overflow:hidden;">
@@ -558,7 +558,7 @@
         document.getElementById('live-clock').innerText = new Date().toLocaleTimeString('id-ID');
     }, 1000);
 
-    // 2. Parser Data Realtime Fleksibel
+    // 2. Parser Data Realtime Fleksibel (Membaca bayarCount & lewatCount)
     function parseFirebaseData(rootVal) {
         const list = [];
         if (!rootVal) return list;
@@ -586,6 +586,8 @@
                                     name: w.name.trim(),
                                     points: Number(w.points) || 0,
                                     setorPoints: Number(w.setorPoints) || 0,
+                                    bayarCount: Number(w.bayarCount) || 0,
+                                    lewatCount: Number(w.lewatCount) || 0,
                                     routeId: routeId,
                                     routeName: routeName,
                                     salesName: salesName,
@@ -746,54 +748,52 @@
     }
 
     // ==========================================================
-    // 5. RUMUS PENILAIAN WARUNG BARU (HISTORIS 25 POIN VS REALTIME TOMBOL $)
+    // 5. RUMUS PENILAIAN DENGAN TOMBOL ($) DAN TOMBOL LEWAT
     // ==========================================================
     function evaluateWarung(w) {
         const pts = w.points || 0;
-        const setor = w.setorPoints || 0;
+        let bayar = w.bayarCount || 0;
+        let lewat = w.lewatCount || 0;
         let winrate = 100;
         let isHistorical = false;
         let countTombolDollar = 0;
         let modeNote = '';
 
-        if (pts === 0) {
-            winrate = 100;
-            modeNote = 'Toko Baru Terdaftar';
-        } else if (setor === 0) {
-            // KONDISI 1: Poin didapat dari "+ Tambah Poin" (sebelum aplikasi dibuat / belum ada transaksi tombol $)
-            // Rumus: Setiap 25 poin dihitung sebagai 1x perintah Tombol ($)
-            isHistorical = true;
-            countTombolDollar = Math.floor(pts / 25);
-            modeNote = `Penilaian Poin Historis (${pts} Pts ÷ 25 = ${countTombolDollar}x Tombol $)`;
-
-            if (countTombolDollar >= 11) {
-                // 11x atau lebih tanpa lewat = 110% (Batas tertinggi / Grade S)
-                winrate = 110;
-            } else if (countTombolDollar >= 1) {
-                // 1x = 100%, naik bertahap hingga 110%
-                winrate = 100 + countTombolDollar;
-                if (winrate > 110) winrate = 110;
-            } else {
-                // Di bawah 25 poin
-                winrate = Math.round((pts / 25) * 100);
-            }
-        } else {
-            // KONDISI 2: Sudah ada transaksi dari Tombol ($) -> Rumus pembagian 25 TIDAK BERLAKU
-            // Menggunakan penilaian Winrate transaksi Tombol ($) murni
-            modeNote = 'Penilaian Real-Time Transaksi Tombol ($)';
-            const ratio = setor / pts;
-
-            if (ratio >= 1) {
-                // Selalu bayar melalui Tombol ($) tanpa lewat
-                const streak = Math.floor(setor / 25);
-                if (streak >= 11) {
-                    winrate = 110; // Cap Grade S
+        // 1. Jika masih data lama (belum pernah ditekan Tombol $ maupun Tombol Lewat)
+        if (bayar === 0 && lewat === 0) {
+            if (pts > 0) {
+                // Rumus historis: 25 poin = 1x setor
+                isHistorical = true;
+                countTombolDollar = Math.floor(pts / 25);
+                modeNote = `Penilaian Poin Awal (${pts} Pts ÷ 25 = ${countTombolDollar}x Setor)`;
+                if (countTombolDollar >= 11) {
+                    winrate = 110;
+                } else if (countTombolDollar >= 1) {
+                    winrate = Math.min(110, 100 + countTombolDollar);
                 } else {
-                    winrate = Math.min(110, 100 + streak);
+                    winrate = Math.round((pts / 25) * 100);
                 }
             } else {
-                // Pernah ada yang lewat (mirip Winrate MLBB yang turun)
-                winrate = Math.round(ratio * 100);
+                winrate = 100;
+                modeNote = 'Toko Baru Terdaftar';
+            }
+        } 
+        // 2. Jika sudah ada transaksi aktif (Tombol $ atau Tombol Lewat)
+        else {
+            const totalKunjungan = bayar + lewat;
+            modeNote = `Riwayat: ${bayar}x Setor ($) | ${lewat}x Lewat`;
+
+            if (lewat === 0) {
+                // Selalu bayar tanpa lewat
+                if (bayar >= 11) {
+                    winrate = 110; // Cap tertinggi Sempurna (Grade S)
+                } else {
+                    winrate = 100 + bayar;
+                    if (winrate > 110) winrate = 110;
+                }
+            } else {
+                // Rumus Winrate Murni: (Bayar / Total Kunjungan) * 100%
+                winrate = Math.round((bayar / totalKunjungan) * 100);
             }
         }
 
@@ -806,14 +806,14 @@
             text = 'Sempurna';
             desc = isHistorical 
                 ? `Luar Biasa! Akumulasi ${pts} Pts setara ${countTombolDollar}x Tombol ($) (≥ 11x tanpa lewat = Sempurna 110%).`
-                : `Luar Biasa! Mencapai 11x transaksi Tombol ($) berturut-turut tanpa lewat (110%).`;
+                : `Luar Biasa! 11x transaksi Tombol ($) berturut-turut tanpa pernah lewat (110%).`;
         } else if (winrate >= 100) {
             grade = 'A';
             badge = 'grade-A';
             text = 'Sangat Baik';
             desc = isHistorical 
-                ? `Sangat Baik! Poin warung setara ${countTombolDollar}x transaksi Tombol ($) penuh tanpa lewat.`
-                : `Sangat Baik! Kedisiplinan 100% menggunakan Tombol ($) tanpa lewat.`;
+                ? `Sangat Baik! Poin warung setara ${countTombolDollar}x transaksi Tombol ($) tanpa lewat.`
+                : `Sangat Baik! Kedisiplinan 100% selalu setor tanpa ada yang lewat.`;
         } else if (winrate >= 90) {
             grade = 'B';
             badge = 'grade-B';
@@ -823,17 +823,17 @@
             grade = 'C';
             badge = 'grade-C';
             text = 'Cukup';
-            desc = `Cukup (${winrate}%). Ada beberapa poin yang terlewat tanpa Tombol ($).`;
+            desc = `Cukup (${winrate}%). Terdapat ${lewat}x kunjungan yang lewat.`;
         } else if (winrate >= 50) {
             grade = 'D';
             badge = 'grade-D';
             text = 'Kurang';
-            desc = `Kurang (${winrate}%). Pembayaran sering terlewat dari Tombol ($).`;
+            desc = `Kurang (${winrate}%). Pembayaran sering terlewat (${lewat}x lewat).`;
         } else {
             grade = 'E';
             badge = 'grade-E';
             text = 'Kritis';
-            desc = `Perlu Ditingkatkan (${winrate}%). Persentase di bawah 40%.`;
+            desc = `Perlu Ditingkatkan (${winrate}%). Winrate di bawah 40% (${lewat}x lewat).`;
         }
 
         return { grade, winrate, badge, text, desc, modeNote };
