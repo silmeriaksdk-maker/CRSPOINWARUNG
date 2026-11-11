@@ -8,6 +8,11 @@
     <meta name="theme-color" content="#1e40af">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Poin Warung">
+
+    <!-- Web App Manifest (PWA) -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"POIN WARUNG","short_name":"PoinWarung","start_url":".","display":"standalone","background_color":"%23ffffff","theme_color":"%231e40af","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/869/869636.png","sizes":"512x512","type":"image/png"}]}'>
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/869/869636.png">
 
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -97,10 +102,39 @@
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
 
+        /* Banner & Tombol Install Aplikasi */
+        .install-banner {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border-bottom: 1px solid #bfdbfe;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-install-header {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: #ffffff;
+            border: none;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+            white-space: nowrap;
+        }
+        .btn-install-header:active {
+            transform: scale(0.96);
+        }
+
         /* View: Login */
         #view-login {
-            padding: 30px 20px;
-            min-height: 90vh;
+            padding: 24px 20px;
+            min-height: 85vh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -135,7 +169,7 @@
             border: 1.5px solid var(--border);
             border-radius: var(--radius-lg);
             padding: 18px 16px;
-            margin-top: 22px;
+            margin-top: 20px;
             text-align: left;
         }
 
@@ -210,6 +244,23 @@
         }
         .btn-check:active { transform: scale(0.98); }
 
+        .btn-install-secondary {
+            width: 100%;
+            padding: 11px;
+            background: #ffffff;
+            color: var(--primary);
+            border: 1.5px solid #bfdbfe;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
         .db-info-badge {
             display: inline-flex;
             align-items: center;
@@ -236,6 +287,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 12px;
+            gap: 6px;
         }
         .route-pill {
             background: rgba(255,255,255,0.18);
@@ -244,6 +296,11 @@
             border-radius: 30px;
             font-size: 0.72rem;
             font-weight: 700;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .btn-switch {
             background: rgba(255,255,255,0.18);
@@ -377,6 +434,48 @@
         .rank-number.top-2 { background: var(--silver); color: #fff; }
         .rank-number.top-3 { background: var(--bronze); color: #fff; }
 
+        /* Modal Panduan Install */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 99999;
+            backdrop-filter: blur(3px);
+        }
+        .modal-card {
+            background: #ffffff;
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 360px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: popIn 0.25s ease-out;
+        }
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-step-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+            background: #f8fafc;
+            padding: 10px 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
         .toast {
             position: fixed;
             bottom: 24px;
@@ -405,6 +504,17 @@
             <span id="live-text">Menyambungkan ke Firebase...</span>
         </div>
         <span id="live-clock">--:--:--</span>
+    </div>
+
+    <!-- BANNER TOMBOL INSTALL CEPAT -->
+    <div id="install-banner" class="install-banner">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-download" style="color:var(--primary); font-size: 1rem;"></i>
+            <span style="font-size:0.75rem; font-weight:700; color:var(--primary-dark);">Pasang di Layar Utama HP</span>
+        </div>
+        <button class="btn-install-header" onclick="triggerAppInstall()">
+            <i class="fas fa-plus-circle"></i> Install App
+        </button>
     </div>
 
     <!-- VIEW 1: LOGIN -->
@@ -437,6 +547,11 @@
             <button class="btn-check" onclick="submitWarungLogin()">
                 <i class="fas fa-sign-in-alt"></i> Masuk & Lihat Poin
             </button>
+
+            <!-- Tombol Tambahan Install di Halaman Depan -->
+            <button class="btn-install-secondary" onclick="triggerAppInstall()">
+                <i class="fas fa-mobile-screen-button"></i> Install Aplikasi Ini di HP
+            </button>
         </div>
 
         <div>
@@ -451,7 +566,12 @@
         <div class="dashboard-header">
             <div class="header-top">
                 <span class="route-pill" id="display-route-name"><i class="fas fa-route"></i> Jalur -</span>
-                <button class="btn-switch" onclick="logoutWarung()"><i class="fas fa-exchange-alt"></i> Ganti Warung</button>
+                <div class="header-actions">
+                    <button class="btn-switch" style="background:rgba(255,255,255,0.28); font-weight:700;" onclick="triggerAppInstall()">
+                        <i class="fas fa-download"></i> Install
+                    </button>
+                    <button class="btn-switch" onclick="logoutWarung()"><i class="fas fa-exchange-alt"></i> Ganti</button>
+                </div>
             </div>
             <h2 class="warung-name-title" id="display-warung-name">Nama Warung</h2>
             <div style="font-size:0.78rem; color:#cbd5e1; margin-top:2px;" id="display-sales-info">Sales: -</div>
@@ -528,6 +648,32 @@
     </div>
 </div>
 
+<!-- Modal Bantuan Instalasi (Untuk Browser yang Memerlukan Aksi Manual / iOS) -->
+<div id="install-guide-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div style="width: 50px; height: 50px; background: #e0e7ff; color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin: 0 auto 12px auto;">
+            <i class="fas fa-cloud-arrow-down"></i>
+        </div>
+        <h4 style="font-size: 1rem; font-weight: 800; color: var(--text-main); margin-bottom: 6px;">Cara Pasang di HP Anda</h4>
+        <p style="font-size: 0.75rem; color: var(--text-sub); margin-bottom: 14px;" id="install-guide-desc">Ikuti langkah mudah berikut agar aplikasi muncul di layar HP:</p>
+        
+        <div id="install-steps-container">
+            <div class="modal-step-item">
+                <i class="fas fa-ellipsis-vertical" style="color:var(--primary); font-size:1.1rem; width:18px; text-align:center;"></i>
+                <span>1. Ketuk ikon titik tiga (<b>⋮</b>) atau menu browser di kanan atas</span>
+            </div>
+            <div class="modal-step-item">
+                <i class="fas fa-mobile-screen-button" style="color:var(--primary); font-size:1.1rem; width:18px; text-align:center;"></i>
+                <span>2. Pilih menu <b>"Install aplikasi"</b> atau <b>"Tambahkan ke Layar Utama"</b></span>
+            </div>
+        </div>
+
+        <button onclick="closeInstallGuideModal()" style="width: 100%; margin-top: 14px; padding: 10px; background: var(--primary); color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+            Saya Mengerti
+        </button>
+    </div>
+</div>
+
 <div id="toast" class="toast"><span id="toast-msg">Notifikasi</span></div>
 
 <script>
@@ -553,12 +699,99 @@
     let previousPointSnapshots = JSON.parse(localStorage.getItem('pw_snaps') || '{}');
     let latestProfits = JSON.parse(localStorage.getItem('pw_profits') || '{}');
 
+    // ==========================================
+    // LOGIKA FITUR PWA / INSTALL APLIKASI
+    // ==========================================
+    let deferredPrompt = null;
+
+    // Deteksi kesiapan browser untuk instalasi langsung
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const banner = document.getElementById('install-banner');
+        if (banner) banner.style.display = 'flex';
+    });
+
+    // Menangani aksi klik tombol install
+    function triggerAppInstall() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    showToast("Sedang memasang aplikasi...");
+                    const banner = document.getElementById('install-banner');
+                    if (banner) banner.style.display = 'none';
+                }
+                deferredPrompt = null;
+            });
+        } else {
+            // Panduan khusus iPhone / iPad (Safari) atau browser tanpa beforeinstallprompt
+            showCustomInstallGuide();
+        }
+    }
+
+    // Modal bantuan instalasi jika browser tidak mendukung prompt otomatis
+    function showCustomInstallGuide() {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const modal = document.getElementById('install-guide-modal');
+        const container = document.getElementById('install-steps-container');
+        const desc = document.getElementById('install-guide-desc');
+
+        if (isIOS) {
+            desc.innerText = "Khusus pengguna iPhone/Safari:";
+            container.innerHTML = `
+                <div class="modal-step-item">
+                    <i class="fas fa-arrow-up-from-bracket" style="color:var(--primary); font-size:1.1rem; width:18px; text-align:center;"></i>
+                    <span>1. Ketuk tombol <b>Bagikan (Share)</b> di bagian bawah browser Safari</span>
+                </div>
+                <div class="modal-step-item">
+                    <i class="fas fa-plus-square" style="color:var(--primary); font-size:1.1rem; width:18px; text-align:center;"></i>
+                    <span>2. Geser ke bawah & pilih <b>"Tambah ke Layar Utama" (Add to Home Screen)</b></span>
+                </div>
+            `;
+        } else {
+            desc.innerText = "Browser Anda siap untuk dipasang:";
+            container.innerHTML = `
+                <div class="modal-step-item">
+                    <i class="fas fa-ellipsis-vertical" style="color:var(--primary); font-size:1.1rem; width:18px; text-align:center;"></i>
+                    <span>1. Ketuk ikon titik tiga (<b>⋮</b>) di pojok kanan atas browser</span>
+                </div>
+                <div class="modal-step-item">
+                    <i class="fas fa-mobile-screen-button" style="color:var(--primary); font-size:1.1rem; width:18px; text-align:center;"></i>
+                    <span>2. Pilih menu <b>"Install aplikasi"</b> atau <b>"Tambahkan ke Layar Utama"</b></span>
+                </div>
+            `;
+        }
+        modal.style.display = 'flex';
+    }
+
+    function closeInstallGuideModal() {
+        document.getElementById('install-guide-modal').style.display = 'none';
+    }
+
+    // Ketika aplikasi sudah sukses terinstal
+    window.addEventListener('appinstalled', () => {
+        deferredPrompt = null;
+        const banner = document.getElementById('install-banner');
+        if (banner) banner.style.display = 'none';
+        showToast("Aplikasi POIN WARUNG berhasil terpasang di HP!");
+    });
+
+    // Registrasi dummy service worker untuk memenuhi syarat PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            const emptySw = 'self.addEventListener("fetch", function(e){});';
+            const blob = new Blob([emptySw], { type: 'text/javascript' });
+            navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+        });
+    }
+
     // Jam Berjalan
     setInterval(() => {
         document.getElementById('live-clock').innerText = new Date().toLocaleTimeString('id-ID');
     }, 1000);
 
-    // 2. Parser Data Realtime Fleksibel (Membaca bayarCount & lewatCount)
+    // 2. Parser Data Realtime Fleksibel
     function parseFirebaseData(rootVal) {
         const list = [];
         if (!rootVal) return list;
@@ -747,9 +980,7 @@
         localStorage.setItem('pw_snaps', JSON.stringify(previousPointSnapshots));
     }
 
-    // ==========================================================
-    // 5. RUMUS PENILAIAN DENGAN TOMBOL ($) DAN TOMBOL LEWAT
-    // ==========================================================
+    // 5. Rumus Penilaian
     function evaluateWarung(w) {
         const pts = w.points || 0;
         let bayar = w.bayarCount || 0;
@@ -759,10 +990,8 @@
         let countTombolDollar = 0;
         let modeNote = '';
 
-        // 1. Jika masih data lama (belum pernah ditekan Tombol $ maupun Tombol Lewat)
         if (bayar === 0 && lewat === 0) {
             if (pts > 0) {
-                // Rumus historis: 25 poin = 1x setor
                 isHistorical = true;
                 countTombolDollar = Math.floor(pts / 25);
                 modeNote = `Penilaian Poin Awal (${pts} Pts ÷ 25 = ${countTombolDollar}x Setor)`;
@@ -777,27 +1006,22 @@
                 winrate = 100;
                 modeNote = 'Toko Baru Terdaftar';
             }
-        } 
-        // 2. Jika sudah ada transaksi aktif (Tombol $ atau Tombol Lewat)
-        else {
+        } else {
             const totalKunjungan = bayar + lewat;
             modeNote = `Riwayat: ${bayar}x Setor ($) | ${lewat}x Lewat`;
 
             if (lewat === 0) {
-                // Selalu bayar tanpa lewat
                 if (bayar >= 11) {
-                    winrate = 110; // Cap tertinggi Sempurna (Grade S)
+                    winrate = 110;
                 } else {
                     winrate = 100 + bayar;
                     if (winrate > 110) winrate = 110;
                 }
             } else {
-                // Rumus Winrate Murni: (Bayar / Total Kunjungan) * 100%
                 winrate = Math.round((bayar / totalKunjungan) * 100);
             }
         }
 
-        // Penentuan Grade Berdasarkan %tase
         let grade = 'E', badge = 'grade-E', text = 'Sangat Kurang', desc = '';
 
         if (winrate >= 110) {
@@ -852,10 +1076,8 @@
         const rpConv = pts * (activeWarung.mainConv || 30);
         document.getElementById('display-point-rupiah').innerText = `≈ Rp${formatRp(rpConv)} (Nilai Tukar)`;
 
-        // Total Akumulasi Keuntungan (Poin x Rp500)
         document.getElementById('display-total-profit').innerText = `Rp${formatRp(pts * 500)}`;
 
-        // Keuntungan Baru Masuk
         const key = normalize(activeWarung.name);
         const latest = latestProfits[key];
         if (latest) {
@@ -866,7 +1088,6 @@
             document.getElementById('display-latest-profit-time').innerText = `Menunggu poin berikutnya`;
         }
 
-        // Terapkan Penilaian Warung
         const ev = evaluateWarung(activeWarung);
         document.getElementById('display-grade-badge').className = `grade-badge-circle ${ev.badge}`;
         document.getElementById('display-grade-letter').innerText = ev.grade;
@@ -880,7 +1101,6 @@
         statusSpan.style.background = ev.winrate >= 90 ? '#dcfce7' : '#fee2e2';
         statusSpan.style.color = ev.winrate >= 90 ? '#15803d' : '#b91c1c';
 
-        // Leaderboard
         renderLeaderboard();
     }
 
