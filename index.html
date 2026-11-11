@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>POIN WARUNG - Pantau Poin Real-Time</title>
+    
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-dark: #172554;
+            --primary-light: #3b82f6;
+            --gold: #f59e0b;
+            --silver: #94a3b8;
+            --bronze: #d97706;
+            --success: #10b981;
+            --danger: #ef4444;
+            --card-bg: #ffffff;
+            --bg: #f8fafc;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+            --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.05);
+            --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            background: #ffffff;
+            position: relative;
+            box-shadow: 0 0 40px rgba(0,0,0,0.06);
+            padding-bottom: 60px;
+        }
+
+        .live-status-bar {
+            background: #0f172a;
+            color: #94a3b8;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 8px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #38bdf8;
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 1.6s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        /* View: Login */
+        #view-login {
+            padding: 30px 20px;
+            min-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+        .brand-icon {
+            width: 74px;
+            height: 74px;
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            color: white;
+            border-radius: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 16px auto;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+        }
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+        }
+        .login-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .search-warung-card {
+            background: #f8fafc;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 18px 16px;
+            margin-top: 22px;
+            text-align: left;
+        }
+
+        .search-input-box {
+            position: relative;
+            margin: 8px 0;
+        }
+        .search-input-box input, select {
+            width: 100%;
+            padding: 13px 14px 13px 40px;
+            border-radius: var(--radius-md);
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-main);
+            outline: none;
+            background: #ffffff;
+        }
+        .search-input-box input:focus, select:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .search-input-box i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1rem;
+        }
+
+        .suggestions-box {
+            max-height: 180px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            margin-top: 6px;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .suggestion-item:active, .suggestion-item:hover {
+            background: #eff6ff;
+            color: var(--primary);
+        }
+
+        .btn-check {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #1e40af, #2563eb);
+            color: #ffffff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 6px 16px rgba(30, 64, 175, 0.25);
+        }
+        .btn-check:active { transform: scale(0.98); }
+
+        .db-info-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: #e0f2fe;
+            color: #0369a1;
+            font-weight: 700;
+            margin-top: 12px;
+        }
+
+        /* View: Dashboard */
+        #view-dashboard { display: none; }
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+            color: #ffffff;
+            padding: 20px 18px 28px 18px;
+            border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .route-pill {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 4px 10px;
+            border-radius: 30px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .btn-switch {
+            background: rgba(255,255,255,0.18);
+            border: none;
+            color: #ffffff;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .warung-name-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+        }
+
+        .point-hero-card {
+            background: #ffffff;
+            margin: -20px 16px 14px 16px;
+            padding: 18px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            text-align: center;
+        }
+        .point-value-display {
+            font-size: 2.8rem;
+            font-weight: 900;
+            color: var(--primary);
+            line-height: 1.1;
+            margin: 4px 0;
+        }
+        .point-rupiah-sub {
+            display: inline-block;
+            background: #eff6ff;
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 1px solid #bfdbfe;
+        }
+
+        .profit-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 0 16px;
+            margin-bottom: 14px;
+        }
+        .profit-card {
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: #ffffff;
+        }
+        .profit-card.total-profit {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .profit-card.latest-profit {
+            background: #fefce8;
+            border-color: #fde68a;
+        }
+        .profit-nominal {
+            font-size: 1.1rem;
+            font-weight: 900;
+            margin-top: 4px;
+        }
+
+        .grade-card {
+            margin: 0 16px 14px 16px;
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            background: #ffffff;
+            border: 1.5px solid var(--border);
+        }
+        .grade-badge-circle {
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #ffffff;
+            flex-shrink: 0;
+        }
+        .grade-S { background: linear-gradient(135deg, #ec4899, #8b5cf6); border: 2px solid #f472b6; }
+        .grade-A { background: linear-gradient(135deg, #10b981, #059669); }
+        .grade-B { background: linear-gradient(135deg, #0284c7, #2563eb); }
+        .grade-C { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .grade-D { background: linear-gradient(135deg, #ea580c, #c2410c); }
+        .grade-E { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 360px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .leaderboard-item {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .leaderboard-item.is-me {
+            background: #f0fdf4;
+            border: 2px solid var(--success);
+        }
+        .rank-number {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            font-weight: 800;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            color: var(--text-sub);
+        }
+        .rank-number.top-1 { background: var(--gold); color: #fff; }
+        .rank-number.top-2 { background: var(--silver); color: #fff; }
+        .rank-number.top-3 { background: var(--bronze); color: #fff; }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #0f172a;
+            color: #ffffff;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div class="live-status-bar">
+        <div class="live-indicator">
+            <span class="live-dot" id="live-dot"></span>
+            <span id="live-text">Menyambungkan ke Firebase...</span>
+        </div>
+        <span id="live-clock">--:--:--</span>
+    </div>
+
+    <!-- VIEW 1: LOGIN -->
+    <div id="view-login">
+        <div class="brand-icon"><i class="fas fa-store"></i></div>
+        <h1 class="login-title">POIN WARUNG</h1>
+        <p class="login-subtitle">Transparansi Poin & Keuntungan Toko Anda</p>
+
+        <div class="search-warung-card">
+            <!-- Pilihan 1: Dropdown Langsung -->
+            <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">
+                <i class="fas fa-list-ul" style="color:var(--primary);"></i> Cara 1: Pilih Langsung Nama Warung:
+            </label>
+            <div style="margin: 8px 0 14px 0;">
+                <select id="select-warung-list" onchange="onWarungSelectChanged(this.value)">
+                    <option value="">-- Sedang memuat warung... --</option>
+                </select>
+            </div>
+
+            <!-- Pilihan 2: Ketik Pencarian -->
+            <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">
+                <i class="fas fa-search" style="color:var(--primary);"></i> Atau Ketik Nama Warung:
+            </label>
+            <div class="search-input-box">
+                <i class="fas fa-keyboard"></i>
+                <input type="text" id="input-nama-warung" placeholder="Contoh: Toko Berkah" autocomplete="off" oninput="handleSearchTyping(this.value)">
+            </div>
+            <div id="suggestions-box" class="suggestions-box"></div>
+
+            <button class="btn-check" onclick="submitWarungLogin()">
+                <i class="fas fa-sign-in-alt"></i> Masuk & Lihat Poin
+            </button>
+        </div>
+
+        <div>
+            <div class="db-info-badge" id="db-status-badge">
+                <i class="fas fa-database"></i> <span id="db-warung-counter">Memuat database...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 2: DASHBOARD WARUNG -->
+    <div id="view-dashboard">
+        <div class="dashboard-header">
+            <div class="header-top">
+                <span class="route-pill" id="display-route-name"><i class="fas fa-route"></i> Jalur -</span>
+                <button class="btn-switch" onclick="logoutWarung()"><i class="fas fa-exchange-alt"></i> Ganti Warung</button>
+            </div>
+            <h2 class="warung-name-title" id="display-warung-name">Nama Warung</h2>
+            <div style="font-size:0.78rem; color:#cbd5e1; margin-top:2px;" id="display-sales-info">Sales: -</div>
+        </div>
+
+        <div class="point-hero-card">
+            <div style="font-size: 0.72rem; font-weight: 800; color: var(--text-sub); text-transform: uppercase;">Poin Penjualan Anda</div>
+            <div class="point-value-display" id="display-point-value">0</div>
+            <div class="point-rupiah-sub" id="display-point-rupiah">≈ Rp0</div>
+        </div>
+
+        <div class="profit-grid">
+            <div class="profit-card total-profit">
+                <div style="font-size:0.7rem; font-weight:700; color:#15803d;"><i class="fas fa-wallet"></i> Total Keuntungan</div>
+                <div class="profit-nominal" id="display-total-profit" style="color:#15803d;">Rp0</div>
+                <div style="font-size:0.65rem; color:var(--text-sub);">Akumulasi (Poin × Rp500)</div>
+            </div>
+
+            <div class="profit-card latest-profit">
+                <div style="font-size:0.7rem; font-weight:700; color:#b45309;"><i class="fas fa-bolt"></i> Baru Ditambahkan</div>
+                <div class="profit-nominal" id="display-latest-profit" style="color:#b45309;">+Rp0</div>
+                <div style="font-size:0.65rem; color:var(--text-sub);" id="display-latest-profit-time">Belum ada poin baru</div>
+            </div>
+        </div>
+
+        <!-- Grade Penilaian Warung -->
+        <div class="grade-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div>
+                    <h3 style="font-size: 0.9rem; font-weight: 800;"><i class="fas fa-award" style="color:var(--gold);"></i> Penilaian Kedisiplinan</h3>
+                    <small id="display-grade-mode-note" style="font-size:0.68rem; color:var(--primary); font-weight:700; display:block; margin-top:2px;">-</small>
+                </div>
+                <span id="display-grade-status" style="font-size: 0.75rem; font-weight: 800; padding: 3px 8px; border-radius: 12px;">-</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px;">
+                <div class="grade-badge-circle grade-A" id="display-grade-badge">
+                    <span id="display-grade-letter" style="font-size:1.8rem; line-height:1;">A</span>
+                    <small style="font-size:0.55rem;">GRADE</small>
+                </div>
+                <div style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:700;">
+                        <span id="display-winrate-label">Persentase:</span>
+                        <span id="display-winrate-percent" style="color:var(--primary);">100%</span>
+                    </div>
+                    <div style="height:7px; background:#e2e8f0; border-radius:10px; margin:5px 0; overflow:hidden;">
+                        <div id="display-rate-bar" style="height:100%; background:var(--primary); width:100%;"></div>
+                    </div>
+                    <div style="font-size:0.72rem; color:var(--text-sub); line-height:1.35;" id="display-grade-desc">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div style="margin: 0 16px 20px 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 style="font-size:0.95rem; font-weight:800;"><i class="fas fa-trophy" style="color:var(--gold);"></i> Peringkat Penjualan</h3>
+                <span style="font-size:0.75rem; color:var(--text-sub);" id="display-total-warungs-count">0 Toko</span>
+            </div>
+
+            <!-- Posisi Toko Saya -->
+            <div style="background:#eff6ff; border:1px dashed var(--primary-light); padding:10px 12px; border-radius:var(--radius-md); display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="rank-number" id="my-rank-number" style="background:var(--primary); color:#fff;">#1</span>
+                    <div>
+                        <div style="font-size:0.8rem; font-weight:700; color:var(--primary-dark);">Peringkat Toko Anda</div>
+                        <small style="font-size:0.68rem; color:var(--text-sub);" id="my-rank-sub">-</small>
+                    </div>
+                </div>
+                <strong style="color:var(--primary); font-size:0.9rem;" id="my-rank-points">0 Pts</strong>
+            </div>
+
+            <div class="leaderboard-list" id="leaderboard-container"></div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"><span id="toast-msg">Notifikasi</span></div>
+
+<script>
+    // 1. Inisialisasi Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyCt5feZsUd_RfqnYxya9lk7oU9Oa6_Gkm0",
+        authDomain: "crspoin-7f284.firebaseapp.com",
+        projectId: "crspoin-7f284",
+        storageBucket: "crspoin-7f284.firebasestorage.app",
+        messagingSenderId: "824502029606",
+        appId: "1:824502029606:web:01f76d897a9e68ab7005e7",
+        measurementId: "G-PFNDQRBTJS",
+        databaseURL: "https://crspoin-7f284-default-rtdb.firebaseio.com/"
+    };
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const rtdb = firebase.database();
+
+    let allWarungsData = [];
+    let activeWarung = null;
+    let previousPointSnapshots = JSON.parse(localStorage.getItem('pw_snaps') || '{}');
+    let latestProfits = JSON.parse(localStorage.getItem('pw_profits') || '{}');
+
+    // Jam Berjalan
+    setInterval(() => {
+        document.getElementById('live-clock').innerText = new Date().toLocaleTimeString('id-ID');
+    }, 1000);
+
+    // 2. Parser Data Realtime Fleksibel
+    function parseFirebaseData(rootVal) {
+        const list = [];
+        if (!rootVal) return list;
+
+        const salesAccounts = (rootVal.routes) ? [rootVal] : Object.values(rootVal);
+
+        salesAccounts.forEach(account => {
+            if (!account || typeof account !== 'object') return;
+            const salesName = account.salesName || "Sales Lapangan";
+            const mainConv = Number(account.mainConversion) || 30;
+
+            if (account.routes) {
+                const routesList = Object.values(account.routes);
+                routesList.forEach(r => {
+                    if (!r || typeof r !== 'object') return;
+                    const routeName = r.name || "Jalur Umum";
+                    const routeId = r.id || "";
+
+                    if (r.warungs) {
+                        const warungsList = Object.values(r.warungs);
+                        warungsList.forEach(w => {
+                            if (w && w.name && typeof w.name === 'string') {
+                                list.push({
+                                    id: w.id || ('w_' + Math.random()),
+                                    name: w.name.trim(),
+                                    points: Number(w.points) || 0,
+                                    setorPoints: Number(w.setorPoints) || 0,
+                                    routeId: routeId,
+                                    routeName: routeName,
+                                    salesName: salesName,
+                                    mainConv: mainConv
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        return list;
+    }
+
+    // 3. Listener Realtime Firebase
+    rtdb.ref('data').on('value', (snapshot) => {
+        const val = snapshot.val();
+        allWarungsData = parseFirebaseData(val);
+
+        document.getElementById('live-dot').style.background = '#22c55e';
+        document.getElementById('live-text').innerText = 'Terhubung Real-Time';
+
+        const counterEl = document.getElementById('db-warung-counter');
+        if (allWarungsData.length > 0) {
+            counterEl.innerText = `${allWarungsData.length} Warung Terdeteksi di Database`;
+            updateDropdownList(allWarungsData);
+        } else {
+            counterEl.innerText = `Database masih kosong (0 warung terdaftar)`;
+            document.getElementById('select-warung-list').innerHTML = '<option value="">-- Belum ada warung dibuat sales --</option>';
+        }
+
+        if (activeWarung) {
+            const updated = allWarungsData.find(w => normalize(w.name) === normalize(activeWarung.name));
+            if (updated) {
+                detectNewPoints(updated);
+                activeWarung = updated;
+                renderDashboard();
+            }
+        }
+    }, (error) => {
+        console.error("Firebase Read Error:", error);
+        document.getElementById('live-dot').style.background = '#ef4444';
+        document.getElementById('live-text').innerText = 'Izin Akses Ditolak';
+        document.getElementById('db-warung-counter').innerText = 'Error: Buka Aturan (Rules) Firebase menjadi .read: true';
+    });
+
+    function normalize(str) {
+        return (str || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    // 4. Dropdown Pemilihan Cepat
+    function updateDropdownList(warungList) {
+        const select = document.getElementById('select-warung-list');
+        const sorted = [...warungList].sort((a, b) => a.name.localeCompare(b.name));
+        let html = '<option value="">-- Klik untuk Pilih Warung Anda --</option>';
+        sorted.forEach(w => {
+            html += `<option value="${w.name}">${w.name} (${w.routeName})</option>`;
+        });
+        select.innerHTML = html;
+    }
+
+    function onWarungSelectChanged(val) {
+        if (!val) return;
+        document.getElementById('input-nama-warung').value = val;
+        submitWarungLogin();
+    }
+
+    function handleSearchTyping(text) {
+        const box = document.getElementById('suggestions-box');
+        const q = normalize(text);
+        if (!q) {
+            box.style.display = 'none';
+            return;
+        }
+
+        const matched = allWarungsData.filter(w => normalize(w.name).includes(q));
+        if (matched.length > 0) {
+            box.innerHTML = matched.slice(0, 6).map(w => `
+                <div class="suggestion-item" onclick="pickSuggestion('${w.name.replace(/'/g, "\\'")}')">
+                    <span><i class="fas fa-store" style="color:var(--primary); margin-right:6px;"></i> ${w.name}</span>
+                    <small style="color:var(--text-sub);">${w.routeName}</small>
+                </div>
+            `).join('');
+            box.style.display = 'block';
+        } else {
+            box.innerHTML = '<div style="padding:10px; font-size:0.78rem; color:#94a3b8; text-align:center;">Nama warung tidak ditemukan</div>';
+            box.style.display = 'block';
+        }
+    }
+
+    function pickSuggestion(name) {
+        document.getElementById('input-nama-warung').value = name;
+        document.getElementById('suggestions-box').style.display = 'none';
+        submitWarungLogin();
+    }
+
+    function submitWarungLogin() {
+        const inputRaw = document.getElementById('input-nama-warung').value;
+        const q = normalize(inputRaw);
+
+        if (!q) return showToast("Pilih atau ketik nama warung Anda!");
+        if (allWarungsData.length === 0) return showToast("Data database sales belum masuk!");
+
+        let found = allWarungsData.find(w => normalize(w.name) === q);
+        if (!found) {
+            found = allWarungsData.find(w => normalize(w.name).includes(q));
+        }
+
+        if (!found) {
+            return showToast("Nama warung tidak cocok dengan database!");
+        }
+
+        activeWarung = found;
+        localStorage.setItem('pw_active_name', found.name);
+
+        const key = normalize(found.name);
+        if (previousPointSnapshots[key] === undefined) {
+            previousPointSnapshots[key] = found.points;
+            localStorage.setItem('pw_snaps', JSON.stringify(previousPointSnapshots));
+        }
+
+        document.getElementById('view-login').style.display = 'none';
+        document.getElementById('view-dashboard').style.display = 'block';
+        renderDashboard();
+        showToast(`Selamat datang di ${found.name}!`);
+    }
+
+    function logoutWarung() {
+        activeWarung = null;
+        localStorage.removeItem('pw_active_name');
+        document.getElementById('input-nama-warung').value = '';
+        document.getElementById('view-dashboard').style.display = 'none';
+        document.getElementById('view-login').style.display = 'flex';
+        showToast("Keluar dari warung");
+    }
+
+    function detectNewPoints(w) {
+        const key = normalize(w.name);
+        const prev = previousPointSnapshots[key];
+
+        if (prev !== undefined && w.points > prev) {
+            const diff = w.points - prev;
+            const newProfit = diff * 500;
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            latestProfits[key] = {
+                nominal: newProfit,
+                time: `+${diff} Poin (${timeStr} WIB)`
+            };
+            localStorage.setItem('pw_profits', JSON.stringify(latestProfits));
+            showToast(`Poin Baru Masuk +${diff}! Keuntungan: +Rp${formatRp(newProfit)}`);
+        }
+
+        previousPointSnapshots[key] = w.points;
+        localStorage.setItem('pw_snaps', JSON.stringify(previousPointSnapshots));
+    }
+
+    // ==========================================================
+    // 5. RUMUS PENILAIAN WARUNG BARU (HISTORIS 25 POIN VS REALTIME TOMBOL $)
+    // ==========================================================
+    function evaluateWarung(w) {
+        const pts = w.points || 0;
+        const setor = w.setorPoints || 0;
+        let winrate = 100;
+        let isHistorical = false;
+        let countTombolDollar = 0;
+        let modeNote = '';
+
+        if (pts === 0) {
+            winrate = 100;
+            modeNote = 'Toko Baru Terdaftar';
+        } else if (setor === 0) {
+            // KONDISI 1: Poin didapat dari "+ Tambah Poin" (sebelum aplikasi dibuat / belum ada transaksi tombol $)
+            // Rumus: Setiap 25 poin dihitung sebagai 1x perintah Tombol ($)
+            isHistorical = true;
+            countTombolDollar = Math.floor(pts / 25);
+            modeNote = `Penilaian Poin Historis (${pts} Pts ÷ 25 = ${countTombolDollar}x Tombol $)`;
+
+            if (countTombolDollar >= 11) {
+                // 11x atau lebih tanpa lewat = 110% (Batas tertinggi / Grade S)
+                winrate = 110;
+            } else if (countTombolDollar >= 1) {
+                // 1x = 100%, naik bertahap hingga 110%
+                winrate = 100 + countTombolDollar;
+                if (winrate > 110) winrate = 110;
+            } else {
+                // Di bawah 25 poin
+                winrate = Math.round((pts / 25) * 100);
+            }
+        } else {
+            // KONDISI 2: Sudah ada transaksi dari Tombol ($) -> Rumus pembagian 25 TIDAK BERLAKU
+            // Menggunakan penilaian Winrate transaksi Tombol ($) murni
+            modeNote = 'Penilaian Real-Time Transaksi Tombol ($)';
+            const ratio = setor / pts;
+
+            if (ratio >= 1) {
+                // Selalu bayar melalui Tombol ($) tanpa lewat
+                const streak = Math.floor(setor / 25);
+                if (streak >= 11) {
+                    winrate = 110; // Cap Grade S
+                } else {
+                    winrate = Math.min(110, 100 + streak);
+                }
+            } else {
+                // Pernah ada yang lewat (mirip Winrate MLBB yang turun)
+                winrate = Math.round(ratio * 100);
+            }
+        }
+
+        // Penentuan Grade Berdasarkan %tase
+        let grade = 'E', badge = 'grade-E', text = 'Sangat Kurang', desc = '';
+
+        if (winrate >= 110) {
+            grade = 'S';
+            badge = 'grade-S';
+            text = 'Sempurna';
+            desc = isHistorical 
+                ? `Luar Biasa! Akumulasi ${pts} Pts setara ${countTombolDollar}x Tombol ($) (≥ 11x tanpa lewat = Sempurna 110%).`
+                : `Luar Biasa! Mencapai 11x transaksi Tombol ($) berturut-turut tanpa lewat (110%).`;
+        } else if (winrate >= 100) {
+            grade = 'A';
+            badge = 'grade-A';
+            text = 'Sangat Baik';
+            desc = isHistorical 
+                ? `Sangat Baik! Poin warung setara ${countTombolDollar}x transaksi Tombol ($) penuh tanpa lewat.`
+                : `Sangat Baik! Kedisiplinan 100% menggunakan Tombol ($) tanpa lewat.`;
+        } else if (winrate >= 90) {
+            grade = 'B';
+            badge = 'grade-B';
+            text = 'Disiplin';
+            desc = `Baik! Kedisiplinan pembayaran mencapai ${winrate}%.`;
+        } else if (winrate >= 70) {
+            grade = 'C';
+            badge = 'grade-C';
+            text = 'Cukup';
+            desc = `Cukup (${winrate}%). Ada beberapa poin yang terlewat tanpa Tombol ($).`;
+        } else if (winrate >= 50) {
+            grade = 'D';
+            badge = 'grade-D';
+            text = 'Kurang';
+            desc = `Kurang (${winrate}%). Pembayaran sering terlewat dari Tombol ($).`;
+        } else {
+            grade = 'E';
+            badge = 'grade-E';
+            text = 'Kritis';
+            desc = `Perlu Ditingkatkan (${winrate}%). Persentase di bawah 40%.`;
+        }
+
+        return { grade, winrate, badge, text, desc, modeNote };
+    }
+
+    // 6. Render Dashboard
+    function renderDashboard() {
+        if (!activeWarung) return;
+
+        document.getElementById('display-warung-name').innerText = activeWarung.name;
+        document.getElementById('display-route-name').innerHTML = `<i class="fas fa-route"></i> ${activeWarung.routeName}`;
+        document.getElementById('display-sales-info').innerText = `Sales: ${activeWarung.salesName}`;
+
+        const pts = activeWarung.points || 0;
+        document.getElementById('display-point-value').innerText = formatRp(pts);
+        const rpConv = pts * (activeWarung.mainConv || 30);
+        document.getElementById('display-point-rupiah').innerText = `≈ Rp${formatRp(rpConv)} (Nilai Tukar)`;
+
+        // Total Akumulasi Keuntungan (Poin x Rp500)
+        document.getElementById('display-total-profit').innerText = `Rp${formatRp(pts * 500)}`;
+
+        // Keuntungan Baru Masuk
+        const key = normalize(activeWarung.name);
+        const latest = latestProfits[key];
+        if (latest) {
+            document.getElementById('display-latest-profit').innerText = `+Rp${formatRp(latest.nominal)}`;
+            document.getElementById('display-latest-profit-time').innerText = latest.time;
+        } else {
+            document.getElementById('display-latest-profit').innerText = `Rp0`;
+            document.getElementById('display-latest-profit-time').innerText = `Menunggu poin berikutnya`;
+        }
+
+        // Terapkan Penilaian Warung
+        const ev = evaluateWarung(activeWarung);
+        document.getElementById('display-grade-badge').className = `grade-badge-circle ${ev.badge}`;
+        document.getElementById('display-grade-letter').innerText = ev.grade;
+        document.getElementById('display-winrate-percent').innerText = `${ev.winrate}%`;
+        document.getElementById('display-rate-bar').style.width = `${Math.min(100, ev.winrate)}%`;
+        document.getElementById('display-grade-desc').innerText = ev.desc;
+        document.getElementById('display-grade-mode-note').innerText = ev.modeNote;
+
+        const statusSpan = document.getElementById('display-grade-status');
+        statusSpan.innerText = ev.text;
+        statusSpan.style.background = ev.winrate >= 90 ? '#dcfce7' : '#fee2e2';
+        statusSpan.style.color = ev.winrate >= 90 ? '#15803d' : '#b91c1c';
+
+        // Leaderboard
+        renderLeaderboard();
+    }
+
+    function renderLeaderboard() {
+        const sorted = [...allWarungsData].sort((a, b) => (b.points || 0) - (a.points || 0));
+        document.getElementById('display-total-warungs-count').innerText = `${sorted.length} Toko`;
+
+        const myIdx = sorted.findIndex(w => normalize(w.name) === normalize(activeWarung.name));
+        const myRank = myIdx !== -1 ? (myIdx + 1) : '-';
+
+        document.getElementById('my-rank-number').innerText = `#${myRank}`;
+        document.getElementById('my-rank-sub').innerText = `Posisi #${myRank} dari total ${sorted.length} toko`;
+        document.getElementById('my-rank-points').innerText = `${activeWarung.points || 0} Pts`;
+
+        const container = document.getElementById('leaderboard-container');
+        container.innerHTML = sorted.map((w, idx) => {
+            const rank = idx + 1;
+            const isMe = normalize(w.name) === normalize(activeWarung.name);
+            let rankClass = (rank === 1) ? 'top-1' : (rank === 2 ? 'top-2' : (rank === 3 ? 'top-3' : ''));
+
+            return `
+                <div class="leaderboard-item ${isMe ? 'is-me' : ''}">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="rank-number ${rankClass}">${rank}</span>
+                        <div>
+                            <strong style="font-size:0.85rem; color:${isMe ? 'var(--primary)' : 'var(--text-main)'};">
+                                ${w.name} ${isMe ? '<span style="font-size:0.68rem; color:var(--success);">(Toko Anda)</span>' : ''}
+                            </strong>
+                            <small style="display:block; font-size:0.7rem; color:var(--text-sub);">${w.routeName}</small>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-weight:800; font-size:0.9rem; color:${isMe ? 'var(--success)' : 'var(--primary)'};">${formatRp(w.points)}</span>
+                        <small style="font-size:0.65rem; color:var(--text-sub); display:block;">Pts</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function formatRp(n) {
+        return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function showToast(m) {
+        const t = document.getElementById('toast');
+        document.getElementById('toast-msg').innerText = m;
+        t.className = 'toast show';
+        setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    // Auto-login jika nama toko tersimpan di HP
+    window.addEventListener('DOMContentLoaded', () => {
+        const saved = localStorage.getItem('pw_active_name');
+        if (saved) {
+            const timer = setInterval(() => {
+                if (allWarungsData.length > 0) {
+                    clearInterval(timer);
+                    const found = allWarungsData.find(w => normalize(w.name) === normalize(saved));
+                    if (found) {
+                        activeWarung = found;
+                        document.getElementById('view-login').style.display = 'none';
+                        document.getElementById('view-dashboard').style.display = 'block';
+                        renderDashboard();
+                    }
+                }
+            }, 300);
+        }
+    });
+</script>
+</body>
+</html>
