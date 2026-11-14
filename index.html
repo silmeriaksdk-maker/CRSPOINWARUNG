@@ -279,7 +279,7 @@
         .dashboard-header {
             background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
             color: #ffffff;
-            padding: 20px 18px 28px 18px;
+            padding: 20px 18px 34px 18px;
             border-radius: 0 0 var(--radius-xl) var(--radius-xl);
         }
         .header-top {
@@ -315,6 +315,30 @@
         .warung-name-title {
             font-size: 1.35rem;
             font-weight: 800;
+        }
+        .join-info-bar {
+            display: none;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.13);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 0.74rem;
+            color: #e2e8f0;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .join-duration-pill {
+            background: rgba(16, 185, 129, 0.22);
+            border: 1px solid rgba(52, 211, 153, 0.45);
+            color: #a7f3d0;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.7rem;
+            white-space: nowrap;
         }
 
         .point-hero-card {
@@ -575,6 +599,15 @@
             </div>
             <h2 class="warung-name-title" id="display-warung-name">Nama Warung</h2>
             <div style="font-size:0.78rem; color:#cbd5e1; margin-top:2px;" id="display-sales-info">Sales: -</div>
+
+            <!-- Info Awal & Total Lama Bergabung -->
+            <div id="display-join-info" class="join-info-bar">
+                <span>
+                    <i class="fas fa-calendar-check" style="color:#93c5fd; margin-right:5px;"></i>
+                    Bergabung: <strong id="display-join-date" style="color:#ffffff;">-</strong>
+                </span>
+                <span id="display-join-duration" class="join-duration-pill">-</span>
+            </div>
         </div>
 
         <div class="point-hero-card">
@@ -794,7 +827,91 @@
             .replace(/'/g, '&#39;');
     }
 
-    // 2. Parser Data Realtime dari Struktur CRSPOIN (data_crs/{userKey})
+    // 2. Deteksi Tanggal Awal Bergabung & Lama Bergabung dari createdAt atau ID (w_<timestamp>)
+    function getWarungJoinInfo(warung) {
+        if (!warung) return null;
+
+        let timestamp = null;
+
+        // Prioritas 1: Field eksplisit createdAt jika tersedia
+        if (warung.createdAt) {
+            const parsed = typeof warung.createdAt === 'number'
+                ? warung.createdAt
+                : Date.parse(warung.createdAt) || Number(warung.createdAt);
+            if (!isNaN(parsed) && parsed > 0) {
+                timestamp = parsed;
+            }
+        }
+
+        // Prioritas 2: Timestamp milidetik dari ID warung (format: w_1781585828604)
+        if (!timestamp && typeof warung.id === 'string') {
+            const match = warung.id.trim().match(/^w_(\d{13})$/);
+            if (match) {
+                timestamp = Number(match[1]);
+            }
+        }
+
+        if (!timestamp) return null;
+
+        const joinDate = new Date(timestamp);
+        if (isNaN(joinDate.getTime())) return null;
+
+        const formattedDate = joinDate.toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        const now = new Date();
+        const startDay = new Date(joinDate.getFullYear(), joinDate.getMonth(), joinDate.getDate());
+        const endDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (endDay < startDay) {
+            return {
+                joinDate,
+                formattedDate,
+                durationText: 'Baru bergabung',
+                totalDays: 0
+            };
+        }
+
+        const totalDays = Math.max(0, Math.round((endDay - startDay) / 86400000));
+
+        let years = endDay.getFullYear() - startDay.getFullYear();
+        let months = endDay.getMonth() - startDay.getMonth();
+        let days = endDay.getDate() - startDay.getDate();
+
+        if (days < 0) {
+            months -= 1;
+            const prevMonthLastDay = new Date(endDay.getFullYear(), endDay.getMonth(), 0).getDate();
+            days += prevMonthLastDay;
+        }
+        if (months < 0) {
+            years -= 1;
+            months += 12;
+        }
+
+        const parts = [];
+        if (years > 0) parts.push(`${years} tahun`);
+        if (months > 0) parts.push(`${months} bulan`);
+        if (days > 0) parts.push(`${days} hari`);
+
+        let durationText = 'Hari ini';
+        if (parts.length > 0) {
+            durationText = (years > 0 || months > 0)
+                ? `${parts.join(' ')} (${totalDays} hari)`
+                : parts.join(' ');
+        }
+
+        return {
+            joinDate,
+            formattedDate,
+            durationText,
+            totalDays
+        };
+    }
+
+    // 3. Parser Data Realtime dari Struktur CRSPOIN (data_crs/{userKey})
     function parseFirebaseData(rootVal) {
         const list = [];
         if (!rootVal || typeof rootVal !== 'object') return list;
@@ -827,6 +944,7 @@
                             if (w && w.name && typeof w.name === 'string') {
                                 list.push({
                                     id: w.id || ('w_' + Math.random().toString(36).slice(2)),
+                                    createdAt: w.createdAt || null,
                                     name: w.name.trim(),
                                     points: Number(w.points) || 0,
                                     setorPoints: Number(w.setorPoints) || 0,
@@ -892,7 +1010,7 @@
         }
     }
 
-    // 3. Listener Realtime Firebase ke node 'data_crs' milik CRSPOIN
+    // 4. Listener Realtime Firebase ke node 'data_crs' milik CRSPOIN
     rtdb.ref('data_crs').on('value', async (snapshot) => {
         const val = snapshot.val();
         let parsed = parseFirebaseData(val);
@@ -921,7 +1039,7 @@
         return (str || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
     }
 
-    // 4. Dropdown Pemilihan Cepat
+    // 5. Dropdown Pemilihan Cepat
     function updateDropdownList(warungList) {
         const select = document.getElementById('select-warung-list');
         const sorted = [...warungList].sort((a, b) => a.name.localeCompare(b.name));
@@ -1041,7 +1159,7 @@
         localStorage.setItem('pw_snaps', JSON.stringify(previousPointSnapshots));
     }
 
-    // 5. Rumus Penilaian (Disinkronkan 100% dengan CRSPOIN)
+    // 6. Rumus Penilaian (Disinkronkan 100% dengan CRSPOIN)
     function evaluateWarung(w) {
         const pts = w.points || 0;
         let bayar = w.bayarCount || 0;
@@ -1116,13 +1234,23 @@
         return { grade, winrate, badge, text, desc, modeNote };
     }
 
-    // 6. Render Dashboard
+    // 7. Render Dashboard
     function renderDashboard() {
         if (!activeWarung) return;
 
         document.getElementById('display-warung-name').innerText = activeWarung.name;
         document.getElementById('display-route-name').innerHTML = `<i class="fas fa-route"></i> ${escapeHtml(activeWarung.routeName)}`;
         document.getElementById('display-sales-info').innerText = `Sales: ${activeWarung.salesName}`;
+
+        const joinInfo = getWarungJoinInfo(activeWarung);
+        const joinBox = document.getElementById('display-join-info');
+        if (joinInfo) {
+            document.getElementById('display-join-date').innerText = joinInfo.formattedDate;
+            document.getElementById('display-join-duration').innerText = `Lama: ${joinInfo.durationText}`;
+            joinBox.style.display = 'flex';
+        } else {
+            joinBox.style.display = 'none';
+        }
 
         const pts = activeWarung.points || 0;
         document.getElementById('display-point-value').innerText = formatRp(pts);
