@@ -501,7 +501,7 @@
     <div class="live-status-bar">
         <div class="live-indicator">
             <span class="live-dot" id="live-dot"></span>
-            <span id="live-text">Menyambungkan ke Firebase...</span>
+            <span id="live-text">Menyambungkan ke CRS Cloud...</span>
         </div>
         <span id="live-clock">--:--:--</span>
     </div>
@@ -556,7 +556,7 @@
 
         <div>
             <div class="db-info-badge" id="db-status-badge">
-                <i class="fas fa-database"></i> <span id="db-warung-counter">Memuat database...</span>
+                <i class="fas fa-database"></i> <span id="db-warung-counter">Memuat database CRSPOIN...</span>
             </div>
         </div>
     </div>
@@ -614,10 +614,10 @@
                 <div style="flex:1;">
                     <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:700;">
                         <span>Persentase Setor:</span>
-                        <span id="display-winrate-percent" style="color:var(--primary);">100%</span>
+                        <span id="display-winrate-percent" style="color:var(--primary);">0%</span>
                     </div>
                     <div style="height:7px; background:#e2e8f0; border-radius:10px; margin:5px 0; overflow:hidden;">
-                        <div id="display-rate-bar" style="height:100%; background:var(--primary); width:100%;"></div>
+                        <div id="display-rate-bar" style="height:100%; background:var(--primary); width:0%;"></div>
                     </div>
                     <div style="font-size:0.72rem; color:var(--text-sub); line-height:1.35;" id="display-grade-desc">-</div>
                 </div>
@@ -648,7 +648,7 @@
     </div>
 </div>
 
-<!-- Modal Bantuan Instalasi (Untuk Browser yang Memerlukan Aksi Manual / iOS) -->
+<!-- Modal Bantuan Instalasi -->
 <div id="install-guide-modal" class="modal-overlay">
     <div class="modal-card">
         <div style="width: 50px; height: 50px; background: #e0e7ff; color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin: 0 auto 12px auto;">
@@ -677,7 +677,7 @@
 <div id="toast" class="toast"><span id="toast-msg">Notifikasi</span></div>
 
 <script>
-    // 1. Inisialisasi Firebase
+    // 1. Inisialisasi Firebase (Terhubung ke Database CRSPOIN)
     const firebaseConfig = {
         apiKey: "AIzaSyCt5feZsUd_RfqnYxya9lk7oU9Oa6_Gkm0",
         authDomain: "crspoin-7f284.firebaseapp.com",
@@ -704,7 +704,6 @@
     // ==========================================
     let deferredPrompt = null;
 
-    // Deteksi kesiapan browser untuk instalasi langsung
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
@@ -712,7 +711,6 @@
         if (banner) banner.style.display = 'flex';
     });
 
-    // Menangani aksi klik tombol install
     function triggerAppInstall() {
         if (deferredPrompt) {
             deferredPrompt.prompt();
@@ -725,12 +723,10 @@
                 deferredPrompt = null;
             });
         } else {
-            // Panduan khusus iPhone / iPad (Safari) atau browser tanpa beforeinstallprompt
             showCustomInstallGuide();
         }
     }
 
-    // Modal bantuan instalasi jika browser tidak mendukung prompt otomatis
     function showCustomInstallGuide() {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const modal = document.getElementById('install-guide-modal');
@@ -769,7 +765,6 @@
         document.getElementById('install-guide-modal').style.display = 'none';
     }
 
-    // Ketika aplikasi sudah sukses terinstal
     window.addEventListener('appinstalled', () => {
         deferredPrompt = null;
         const banner = document.getElementById('install-banner');
@@ -777,7 +772,6 @@
         showToast("Aplikasi POIN WARUNG berhasil terpasang di HP!");
     });
 
-    // Registrasi dummy service worker untuk memenuhi syarat PWA
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             const emptySw = 'self.addEventListener("fetch", function(e){});';
@@ -791,38 +785,57 @@
         document.getElementById('live-clock').innerText = new Date().toLocaleTimeString('id-ID');
     }, 1000);
 
-    // 2. Parser Data Realtime Fleksibel
+    function escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // 2. Parser Data Realtime dari Struktur CRSPOIN (data_crs/{userKey})
     function parseFirebaseData(rootVal) {
         const list = [];
-        if (!rootVal) return list;
+        if (!rootVal || typeof rootVal !== 'object') return list;
 
-        const salesAccounts = (rootVal.routes) ? [rootVal] : Object.values(rootVal);
+        const entries = rootVal.routes
+            ? [['default', rootVal]]
+            : Object.entries(rootVal);
 
-        salesAccounts.forEach(account => {
+        entries.forEach(([userKey, account]) => {
             if (!account || typeof account !== 'object') return;
-            const salesName = account.salesName || "Sales Lapangan";
+            const salesName = (account.salesName && account.salesName.trim()) ? account.salesName.trim() : userKey;
             const mainConv = Number(account.mainConversion) || 30;
 
             if (account.routes) {
-                const routesList = Object.values(account.routes);
+                const routesList = Array.isArray(account.routes)
+                    ? account.routes
+                    : Object.values(account.routes);
+
                 routesList.forEach(r => {
                     if (!r || typeof r !== 'object') return;
                     const routeName = r.name || "Jalur Umum";
                     const routeId = r.id || "";
 
                     if (r.warungs) {
-                        const warungsList = Object.values(r.warungs);
+                        const warungsList = Array.isArray(r.warungs)
+                            ? r.warungs
+                            : Object.values(r.warungs);
+
                         warungsList.forEach(w => {
                             if (w && w.name && typeof w.name === 'string') {
                                 list.push({
-                                    id: w.id || ('w_' + Math.random()),
+                                    id: w.id || ('w_' + Math.random().toString(36).slice(2)),
                                     name: w.name.trim(),
                                     points: Number(w.points) || 0,
                                     setorPoints: Number(w.setorPoints) || 0,
                                     bayarCount: Number(w.bayarCount) || 0,
                                     lewatCount: Number(w.lewatCount) || 0,
+                                    legacyConverted: Boolean(w.legacyConverted),
                                     routeId: routeId,
                                     routeName: routeName,
+                                    salesKey: userKey,
                                     salesName: salesName,
                                     mainConv: mainConv
                                 });
@@ -836,36 +849,72 @@
         return list;
     }
 
-    // 3. Listener Realtime Firebase
-    rtdb.ref('data').on('value', (snapshot) => {
-        const val = snapshot.val();
-        allWarungsData = parseFirebaseData(val);
+    function applyWarungDataset(warungs) {
+        allWarungsData = warungs;
 
         document.getElementById('live-dot').style.background = '#22c55e';
-        document.getElementById('live-text').innerText = 'Terhubung Real-Time';
+        document.getElementById('live-text').innerText = 'Terhubung Real-Time (CRS)';
 
         const counterEl = document.getElementById('db-warung-counter');
         if (allWarungsData.length > 0) {
-            counterEl.innerText = `${allWarungsData.length} Warung Terdeteksi di Database`;
+            counterEl.innerText = `${allWarungsData.length} Warung Terdeteksi di CRSPOIN`;
             updateDropdownList(allWarungsData);
         } else {
-            counterEl.innerText = `Database masih kosong (0 warung terdaftar)`;
+            counterEl.innerText = `Database CRSPOIN masih kosong (0 warung terdaftar)`;
             document.getElementById('select-warung-list').innerHTML = '<option value="">-- Belum ada warung dibuat sales --</option>';
         }
 
+        // Auto-login jika data baru tiba dan nama toko tersimpan di HP
+        if (!activeWarung) {
+            const savedId = localStorage.getItem('pw_active_id');
+            const savedName = localStorage.getItem('pw_active_name');
+            if ((savedId || savedName) && allWarungsData.length > 0) {
+                const found = (savedId ? allWarungsData.find(w => w.id === savedId) : null)
+                    || (savedName ? allWarungsData.find(w => normalize(w.name) === normalize(savedName)) : null);
+                if (found) {
+                    activeWarung = found;
+                    document.getElementById('view-login').style.display = 'none';
+                    document.getElementById('view-dashboard').style.display = 'block';
+                    renderDashboard();
+                    return;
+                }
+            }
+        }
+
         if (activeWarung) {
-            const updated = allWarungsData.find(w => normalize(w.name) === normalize(activeWarung.name));
+            const updated = allWarungsData.find(w => w.id === activeWarung.id)
+                || allWarungsData.find(w => normalize(w.name) === normalize(activeWarung.name));
             if (updated) {
                 detectNewPoints(updated);
                 activeWarung = updated;
                 renderDashboard();
             }
         }
+    }
+
+    // 3. Listener Realtime Firebase ke node 'data_crs' milik CRSPOIN
+    rtdb.ref('data_crs').on('value', async (snapshot) => {
+        const val = snapshot.val();
+        let parsed = parseFirebaseData(val);
+
+        // Fallback ke node 'data' hanya jika node 'data_crs' belum berisi warung sama sekali
+        if (parsed.length === 0) {
+            try {
+                const legacySnap = await rtdb.ref('data').once('value');
+                if (legacySnap.exists()) {
+                    parsed = parseFirebaseData(legacySnap.val());
+                }
+            } catch (e) {
+                // Abaikan jika node legacy 'data' tidak tersedia / dibatasi
+            }
+        }
+
+        applyWarungDataset(parsed);
     }, (error) => {
         console.error("Firebase Read Error:", error);
         document.getElementById('live-dot').style.background = '#ef4444';
         document.getElementById('live-text').innerText = 'Izin Akses Ditolak';
-        document.getElementById('db-warung-counter').innerText = 'Error: Buka Aturan (Rules) Firebase menjadi .read: true';
+        document.getElementById('db-warung-counter').innerText = 'Error: Buka Aturan (Rules) Firebase data_crs menjadi .read: true';
     });
 
     function normalize(str) {
@@ -878,15 +927,17 @@
         const sorted = [...warungList].sort((a, b) => a.name.localeCompare(b.name));
         let html = '<option value="">-- Klik untuk Pilih Warung Anda --</option>';
         sorted.forEach(w => {
-            html += `<option value="${w.name}">${w.name} (${w.routeName})</option>`;
+            html += `<option value="${escapeHtml(w.id)}">${escapeHtml(w.name)} (${escapeHtml(w.routeName)} - ${escapeHtml(w.salesName)})</option>`;
         });
         select.innerHTML = html;
     }
 
-    function onWarungSelectChanged(val) {
-        if (!val) return;
-        document.getElementById('input-nama-warung').value = val;
-        submitWarungLogin();
+    function onWarungSelectChanged(warungId) {
+        if (!warungId) return;
+        const found = allWarungsData.find(w => w.id === warungId);
+        if (!found) return;
+        document.getElementById('input-nama-warung').value = found.name;
+        loginToWarung(found);
     }
 
     function handleSearchTyping(text) {
@@ -900,9 +951,9 @@
         const matched = allWarungsData.filter(w => normalize(w.name).includes(q));
         if (matched.length > 0) {
             box.innerHTML = matched.slice(0, 6).map(w => `
-                <div class="suggestion-item" onclick="pickSuggestion('${w.name.replace(/'/g, "\\'")}')">
-                    <span><i class="fas fa-store" style="color:var(--primary); margin-right:6px;"></i> ${w.name}</span>
-                    <small style="color:var(--text-sub);">${w.routeName}</small>
+                <div class="suggestion-item" onclick="pickSuggestionById('${escapeHtml(w.id)}')">
+                    <span><i class="fas fa-store" style="color:var(--primary); margin-right:6px;"></i> ${escapeHtml(w.name)}</span>
+                    <small style="color:var(--text-sub);">${escapeHtml(w.routeName)}</small>
                 </div>
             `).join('');
             box.style.display = 'block';
@@ -912,10 +963,12 @@
         }
     }
 
-    function pickSuggestion(name) {
-        document.getElementById('input-nama-warung').value = name;
+    function pickSuggestionById(warungId) {
+        const found = allWarungsData.find(w => w.id === warungId);
+        if (!found) return;
+        document.getElementById('input-nama-warung').value = found.name;
         document.getElementById('suggestions-box').style.display = 'none';
-        submitWarungLogin();
+        loginToWarung(found);
     }
 
     function submitWarungLogin() {
@@ -923,7 +976,7 @@
         const q = normalize(inputRaw);
 
         if (!q) return showToast("Pilih atau ketik nama warung Anda!");
-        if (allWarungsData.length === 0) return showToast("Data database sales belum masuk!");
+        if (allWarungsData.length === 0) return showToast("Data database CRSPOIN belum masuk!");
 
         let found = allWarungsData.find(w => normalize(w.name) === q);
         if (!found) {
@@ -931,10 +984,15 @@
         }
 
         if (!found) {
-            return showToast("Nama warung tidak cocok dengan database!");
+            return showToast("Nama warung tidak cocok dengan database CRSPOIN!");
         }
 
+        loginToWarung(found);
+    }
+
+    function loginToWarung(found) {
         activeWarung = found;
+        localStorage.setItem('pw_active_id', found.id);
         localStorage.setItem('pw_active_name', found.name);
 
         const key = normalize(found.name);
@@ -943,6 +1001,7 @@
             localStorage.setItem('pw_snaps', JSON.stringify(previousPointSnapshots));
         }
 
+        document.getElementById('suggestions-box').style.display = 'none';
         document.getElementById('view-login').style.display = 'none';
         document.getElementById('view-dashboard').style.display = 'block';
         renderDashboard();
@@ -951,8 +1010,10 @@
 
     function logoutWarung() {
         activeWarung = null;
+        localStorage.removeItem('pw_active_id');
         localStorage.removeItem('pw_active_name');
         document.getElementById('input-nama-warung').value = '';
+        document.getElementById('select-warung-list').value = '';
         document.getElementById('view-dashboard').style.display = 'none';
         document.getElementById('view-login').style.display = 'flex';
         showToast("Keluar dari warung");
@@ -980,64 +1041,56 @@
         localStorage.setItem('pw_snaps', JSON.stringify(previousPointSnapshots));
     }
 
-    // 5. Rumus Penilaian
+    // 5. Rumus Penilaian (Disinkronkan 100% dengan CRSPOIN)
     function evaluateWarung(w) {
         const pts = w.points || 0;
         let bayar = w.bayarCount || 0;
         let lewat = w.lewatCount || 0;
-        let winrate = 100;
         let isHistorical = false;
-        let countTombolDollar = 0;
+
+        // Migrasi poin lama sama seperti migrateLegacyPointsOnce() di CRSPOIN
+        if (!w.legacyConverted && bayar === 0 && lewat === 0 && pts > 0) {
+            bayar = Math.floor(pts / 25);
+            isHistorical = true;
+        }
+
+        const totalKunjungan = bayar + lewat;
+        let winrate = 0;
         let modeNote = '';
 
-        if (bayar === 0 && lewat === 0) {
-            if (pts > 0) {
-                isHistorical = true;
-                countTombolDollar = Math.floor(pts / 25);
-                modeNote = `Penilaian Poin Awal (${pts} Pts ÷ 25 = ${countTombolDollar}x Setor)`;
-                if (countTombolDollar >= 11) {
-                    winrate = 110;
-                } else if (countTombolDollar >= 1) {
-                    winrate = Math.min(110, 100 + countTombolDollar);
-                } else {
-                    winrate = Math.round((pts / 25) * 100);
-                }
-            } else {
-                winrate = 100;
-                modeNote = 'Toko Baru Terdaftar';
-            }
+        if (totalKunjungan === 0) {
+            winrate = 0;
+            modeNote = 'Belum ada riwayat setor ($)';
         } else {
-            const totalKunjungan = bayar + lewat;
-            modeNote = `Riwayat: ${bayar}x Setor ($) | ${lewat}x Lewat`;
+            modeNote = isHistorical
+                ? `Penilaian Poin Awal (${pts} Pts ÷ 25 = ${bayar}x Setor)`
+                : `Riwayat: ${bayar}x Bayar ($) | ${lewat}x Lewat`;
 
             if (lewat === 0) {
-                if (bayar >= 11) {
-                    winrate = 110;
-                } else {
-                    winrate = 100 + bayar;
-                    if (winrate > 110) winrate = 110;
-                }
+                // 1x = 100%, 2x = 101%, ..., 11x = 110% (batas tertinggi)
+                winrate = bayar >= 11 ? 110 : 100 + Math.max(0, bayar - 1);
             } else {
-                winrate = Math.round((bayar / totalKunjungan) * 100);
+                winrate = Math.min(110, Math.round((bayar / totalKunjungan) * 100));
             }
         }
 
-        let grade = 'E', badge = 'grade-E', text = 'Sangat Kurang', desc = '';
+        let grade = 'E', badge = 'grade-E', text = 'Kritis', desc = '';
 
-        if (winrate >= 110) {
+        if (totalKunjungan === 0) {
+            grade = 'E';
+            badge = 'grade-E';
+            text = 'Belum Setor';
+            desc = 'Toko belum memiliki riwayat transaksi setor ($) atau lewat.';
+        } else if (winrate >= 110) {
             grade = 'S';
             badge = 'grade-S';
             text = 'Sempurna';
-            desc = isHistorical 
-                ? `Luar Biasa! Akumulasi ${pts} Pts setara ${countTombolDollar}x Tombol ($) (≥ 11x tanpa lewat = Sempurna 110%).`
-                : `Luar Biasa! 11x transaksi Tombol ($) berturut-turut tanpa pernah lewat (110%).`;
+            desc = `Luar Biasa! ${bayar}x setor berturut-turut tanpa pernah lewat (110%).`;
         } else if (winrate >= 100) {
             grade = 'A';
             badge = 'grade-A';
             text = 'Sangat Baik';
-            desc = isHistorical 
-                ? `Sangat Baik! Poin warung setara ${countTombolDollar}x transaksi Tombol ($) tanpa lewat.`
-                : `Sangat Baik! Kedisiplinan 100% selalu setor tanpa ada yang lewat.`;
+            desc = `Sangat Baik! Kedisiplinan ${winrate}% (${bayar}x setor tanpa ada yang lewat).`;
         } else if (winrate >= 90) {
             grade = 'B';
             badge = 'grade-B';
@@ -1057,7 +1110,7 @@
             grade = 'E';
             badge = 'grade-E';
             text = 'Kritis';
-            desc = `Perlu Ditingkatkan (${winrate}%). Winrate di bawah 40% (${lewat}x lewat).`;
+            desc = `Perlu Ditingkatkan (${winrate}%). Winrate di bawah 50% (${lewat}x lewat).`;
         }
 
         return { grade, winrate, badge, text, desc, modeNote };
@@ -1068,7 +1121,7 @@
         if (!activeWarung) return;
 
         document.getElementById('display-warung-name').innerText = activeWarung.name;
-        document.getElementById('display-route-name').innerHTML = `<i class="fas fa-route"></i> ${activeWarung.routeName}`;
+        document.getElementById('display-route-name').innerHTML = `<i class="fas fa-route"></i> ${escapeHtml(activeWarung.routeName)}`;
         document.getElementById('display-sales-info').innerText = `Sales: ${activeWarung.salesName}`;
 
         const pts = activeWarung.points || 0;
@@ -1108,7 +1161,7 @@
         const sorted = [...allWarungsData].sort((a, b) => (b.points || 0) - (a.points || 0));
         document.getElementById('display-total-warungs-count').innerText = `${sorted.length} Toko`;
 
-        const myIdx = sorted.findIndex(w => normalize(w.name) === normalize(activeWarung.name));
+        const myIdx = sorted.findIndex(w => w.id === activeWarung.id);
         const myRank = myIdx !== -1 ? (myIdx + 1) : '-';
 
         document.getElementById('my-rank-number').innerText = `#${myRank}`;
@@ -1118,7 +1171,7 @@
         const container = document.getElementById('leaderboard-container');
         container.innerHTML = sorted.map((w, idx) => {
             const rank = idx + 1;
-            const isMe = normalize(w.name) === normalize(activeWarung.name);
+            const isMe = w.id === activeWarung.id;
             let rankClass = (rank === 1) ? 'top-1' : (rank === 2 ? 'top-2' : (rank === 3 ? 'top-3' : ''));
 
             return `
@@ -1127,9 +1180,9 @@
                         <span class="rank-number ${rankClass}">${rank}</span>
                         <div>
                             <strong style="font-size:0.85rem; color:${isMe ? 'var(--primary)' : 'var(--text-main)'};">
-                                ${w.name} ${isMe ? '<span style="font-size:0.68rem; color:var(--success);">(Toko Anda)</span>' : ''}
+                                ${escapeHtml(w.name)} ${isMe ? '<span style="font-size:0.68rem; color:var(--success);">(Toko Anda)</span>' : ''}
                             </strong>
-                            <small style="display:block; font-size:0.7rem; color:var(--text-sub);">${w.routeName}</small>
+                            <small style="display:block; font-size:0.7rem; color:var(--text-sub);">${escapeHtml(w.routeName)} • ${escapeHtml(w.salesName)}</small>
                         </div>
                     </div>
                     <div style="text-align:right;">
@@ -1151,25 +1204,6 @@
         t.className = 'toast show';
         setTimeout(() => t.classList.remove('show'), 2800);
     }
-
-    // Auto-login jika nama toko tersimpan di HP
-    window.addEventListener('DOMContentLoaded', () => {
-        const saved = localStorage.getItem('pw_active_name');
-        if (saved) {
-            const timer = setInterval(() => {
-                if (allWarungsData.length > 0) {
-                    clearInterval(timer);
-                    const found = allWarungsData.find(w => normalize(w.name) === normalize(saved));
-                    if (found) {
-                        activeWarung = found;
-                        document.getElementById('view-login').style.display = 'none';
-                        document.getElementById('view-dashboard').style.display = 'block';
-                        renderDashboard();
-                    }
-                }
-            }, 300);
-        }
-    });
 </script>
 </body>
 </html>
